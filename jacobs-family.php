@@ -10,6 +10,13 @@ Domain Path: /languages
 
 class Jacobs_Media_Management {
 	
+	/** 
+	 *	Hook into WordPress and prepare all the methods as necessary.
+	 *
+	 *	@author		Nate Jacobs
+	 *	@date		7/30/14
+	 *	@since		1.0
+	 */
 	public function __construct() {
 		add_action( 'pre_get_posts',  [ $this, 'pre_get_posts' ] );
 		add_action( 'add_attachment', [ $this, 'add_attachment' ] );
@@ -43,15 +50,18 @@ class Jacobs_Media_Management {
 				return $content;
 			}
 		});
-		
-		add_filter( 'posts_request', function($input){
-			//var_dump($input);
-		
-		    return $input;
-		});
 	}
 	
-	// borrowed from https://github.com/helenhousandi/snap
+	/** 
+	 *	Only show attachments on certain pages based upon various variables.
+	 *	Borrowed from https://github.com/helenhousandi/snap
+	 *
+	 *	@author		Nate Jacobs
+	 *	@date		8/2/14
+	 *	@since		1.0
+	 *
+	 *	@param		object	$query
+	 */
 	public function pre_get_posts( $query ) {
 		if( $query->is_main_query() && ( isset($query->query['category_name']) && $query->query['category_name'] == 'family-photo' ) ) {
 			$query->set( 'post_type', [ 'attachment' ] );
@@ -61,17 +71,35 @@ class Jacobs_Media_Management {
 		}
 	}
 	
-	// borrowed from https://github.com/helenhousandi/snap
+	/** 
+	 *	Add the action to update the 'post_date' field on upload.
+	 *	Borrowed from https://github.com/helenhousandi/snap
+	 *
+	 *	@author		Nate Jacobs
+	 *	@date		7/30/14
+	 *	@since		1.0
+	 *
+	 *	@param		int	$post_id	 The attachment ID.
+	 */
 	public function add_attachment( $post_id ) {
 		// Only alter the publish date when first uploading
-		add_filter( 'wp_update_attachment_metadata', array( $this, 'update_image_date' ), 10, 2 );
+		add_filter( 'wp_update_attachment_metadata', [ $this, 'update_image_date' ], 10, 2 );
 	}
 	
-	// borrowed from https://github.com/helenhousandi/snap
+	/** 
+	 *	Update the 'post_date' field with the date in the image meta
+	 *
+	 *	@author		Nate Jacobs
+	 *	@date		7/30/14
+	 *	@since		1.0
+	 *
+	 *	@param		array 	$data		The attachment meta array.
+	 *	@param		int 		$post_id		The attachment ID.
+	 */
 	public function update_image_date( $data, $post_id ) {
 		// No loops :)
 		// We don't add this back because we only want it to run once per attachment
-		remove_filter( 'wp_update_attachment_metadata', array( $this, 'update_image_date' ), 10, 2 );
+		remove_filter( 'wp_update_attachment_metadata', [ $this, 'update_image_date' ], 10, 2 );
 
 		// If the created-date is saved in EXIF data
 		if ( isset( $data['image_meta']['created_timestamp'] ) && 0 !== $data['image_meta']['created_timestamp'] ) {
@@ -92,6 +120,7 @@ class Jacobs_Media_Management {
 	}
 	
 	/** 
+	 *	Change up the rewrite rules for attachments.
 	 *	from http://wordpress.stackexchange.com/questions/14924/
 	 *
 	 *	@author		Nate Jacobs
@@ -107,7 +136,7 @@ class Jacobs_Media_Management {
 	}
 	
 	/** 
-	 *	
+	 *	Add /media/attachmentID as the new permalink.
 	 *
 	 *	@author		Nate Jacobs
 	 *	@date		7/29/14
@@ -145,13 +174,13 @@ class Jacobs_Media_Management {
 	}
 	
 	/** 
-	 *	
+	 *	Add a new meta box for the photo date/time.
 	 *
 	 *	@author		Nate Jacobs
 	 *	@date		7/29/14
 	 *	@since		1.0
 	 *
-	 *	@param		
+	 *	@param		object	$post
 	 */
 	public function add_custom_meta_boxes( $post ) {
 		if(wp_attachment_is_image($post->ID)){
@@ -177,13 +206,11 @@ class Jacobs_Media_Management {
 	}
 	
 	/** 
-	 *	
+	 *	Add new photo-people and photo-location taxonomies to the attachments.
 	 *
 	 *	@author		Nate Jacobs
 	 *	@date		7/29/14
 	 *	@since		1.0
-	 *
-	 *	@param		
 	 */
 	public function register_taxonomies()
 	{
@@ -228,35 +255,35 @@ class Jacobs_Media_Management {
 	}
 	
 	/** 
-	 *	
+	 *	Load up the necessary scripts for photo tagging and displaying.
 	 *
 	 *	@author		Nate Jacobs
 	 *	@date		7/30/14
 	 *	@since		1.0
-	 *
-	 *	@param		
 	 */
 	public function image_tag_scripts()
 	{
-		wp_enqueue_script( 'jfg-display-photo-tag', trailingslashit( plugin_dir_url( __FILE__ ) ) . 'assets/js/display-photo-tags.js', [ 'jquery' ], '1.0.0', true );
-		wp_enqueue_script( 'jquery-taggd', trailingslashit( plugin_dir_url( __FILE__ ) ) . 'assets/js/jquery.taggd.js', [ 'jquery' ], '1.0.0', true );
-		wp_enqueue_style( 'jquery-taggd-css', trailingslashit( plugin_dir_url( __FILE__ ) ) . 'assets/css/jquery.taggd.css', [], '1.0.0' );
-		
-		if(is_user_logged_in()) {
-			wp_enqueue_script( 'jfg-photo-tag', trailingslashit( plugin_dir_url( __FILE__ ) ) . 'assets/js/photo-tag.js', [ 'jquery' ], '1.0.0', true );
-			wp_localize_script( 
-	             'jfg-photo-tag',
-	             'jfg_ajax',
-	             [
-				 	'ajaxurl' => admin_url( 'admin-ajax.php' ),
-				 	'ajaxnonce' => wp_create_nonce( 'ajax_validation' )
-				 ]
-	        );
-        }
+		if(is_attachment()) {
+			wp_enqueue_script( 'jfg-display-photo-tag', trailingslashit( plugin_dir_url( __FILE__ ) ) . 'assets/js/display-photo-tags.js', [ 'jquery' ], '1.0.0', true );
+			wp_enqueue_script( 'jquery-taggd', trailingslashit( plugin_dir_url( __FILE__ ) ) . 'assets/js/jquery.taggd.js', [ 'jquery' ], '1.0.0', true );
+			wp_enqueue_style( 'jquery-taggd-css', trailingslashit( plugin_dir_url( __FILE__ ) ) . 'assets/css/jquery.taggd.css', [], '1.0.0' );
+			
+			if(is_user_logged_in()) {
+				wp_enqueue_script( 'jfg-photo-tag', trailingslashit( plugin_dir_url( __FILE__ ) ) . 'assets/js/photo-tag.js', [ 'jquery' ], '1.0.0', true );
+				wp_localize_script( 
+		             'jfg-photo-tag',
+		             'jfg_ajax',
+		             [
+					 	'ajaxurl' => admin_url( 'admin-ajax.php' ),
+					 	'ajaxnonce' => wp_create_nonce( 'ajax_validation' )
+					 ]
+		        );
+	        }
+		}
 	}
 	
 	/** 
-	 *	
+	 *	Add the people tags to the post meta and associate the taxonomy with the image.
 	 *
 	 *	@author		Nate Jacobs
 	 *	@date		8/1/14
@@ -322,7 +349,8 @@ class Jacobs_Media_Management {
 	}
 	
 	/** 
-	 *	
+	 *	When a photo-people taxonomy term is removed from an image delete
+	 *	the reference to the person in the photo is removed from post meta.
 	 *
 	 *	@author		Nate Jacobs
 	 *	@date		8/2/14
