@@ -17,6 +17,7 @@ jQuery(document).ready(function( $ ) {
 				$("#photo-people-select").val(-1);
 				$("h4#response-message").remove();
 				$("button#submit-photo-tag").show();
+				$("#person-name").val('');
 			});
 			
 			// get width and height of image as displayed
@@ -73,6 +74,50 @@ jQuery(document).ready(function( $ ) {
 					}
 				});
 			});
+		});
+	});
+	
+	// reset the select option
+	$("#image-add-location").on('hidden.bs.modal', function (e) {
+		$("#photo-location-select").val(-1);
+		$("h4#response-message").remove();
+		$("#location-name").val('');
+		
+	});
+	
+	$("button#submit-photo-location").unbind('click').click(function(event) {
+		var locationModalBody = $("#image-add-location .modal-dialog .modal-body");
+		var selectedLocation = $("#photo-location-select").val();
+		var locationName = $("#location-name").val();
+		var attachmentID = $("span#photo-attachment-id").data("photo");
+		
+		if(selectedLocation == '-1') {
+			if(!locationName) {
+				newLocation = '';
+			} else {
+				newLocation = locationName;
+			}
+		} else {
+			newLocation = selectedLocation;
+		}
+						
+		var posting = $.post( jfg_ajax.ajaxurl, {
+			action: 'jfg_photo_location',
+			location: newLocation,
+			image: attachmentID,
+			security: jfg_ajax.ajaxnonce
+		});
+		
+		// when the response comes back
+		posting.done(function( response ) {
+			// if it is a success display the success message, otherwise the error
+			if( response.success ) {
+				locationModalBody.append('<h4 id="response-message" class="text-danger">' +response.data.message+'</h4>');
+				//$("button#submit-photo-location").hide();
+			}
+			else if( !response.sucess ) {
+				locationModalBody.append('<h4 id="response-message" class="text-danger">' +response.data.message+'</h4>');
+			}
 		});
 	});
 });

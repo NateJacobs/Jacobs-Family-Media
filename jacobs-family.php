@@ -27,6 +27,7 @@ class Jacobs_Media_Management {
 		add_action( 'init', [ $this, 'register_taxonomies' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'image_tag_scripts' ] );
 		add_action( 'wp_ajax_jfg_photo_tag', [ $this, 'get_photo_tag' ] );
+		add_action( 'wp_ajax_jfg_photo_location', [ $this, 'add_photo_location' ] );
 		add_action( 'deleted_term_relationships', [ $this, 'remove_photo_tag' ], 10, 2 );
 		
 		if( !is_admin() )
@@ -349,6 +350,48 @@ class Jacobs_Media_Management {
 	}
 	
 	/** 
+	 *	Add photo locations from front end of site.
+	 *
+	 *	@author		Nate Jacobs
+	 *	@date		8/2/14
+	 *	@since		1.0
+	 */
+	public function add_photo_location()
+	{
+		check_ajax_referer('ajax_validation', 'security');
+		$return = false;
+		
+		if(empty($_POST['location'])) {
+			$return = false;
+		} else {
+			$location_id = $_POST['location'];
+			
+			if(!is_numeric($_POST['location'])) {
+				$new_term = wp_insert_term($_POST['location'], 'photo-location');
+				
+				if(isset($new_term) && is_wp_error($new_term)) {
+					$location_id = false;
+				} else {
+					$location_id = $new_term['term_id'];
+				}
+			}
+			
+			if(false !== $location_id) {
+				$return = wp_set_object_terms( (int) $_POST['image'], (int) $location_id, 'photo-location', true);
+			}
+			else {
+				$return = false;
+			}
+		}
+		
+		if($return) {
+			wp_send_json_success(['message' => 'The location was added successfully!']);
+		} else {
+			wp_send_json_error(['message' => 'There was a problem adding the location. Please refresh the page and try again.']);
+		}
+	}
+	
+	/** 
 	 *	When a photo-people taxonomy term is removed from an image delete
 	 *	the reference to the person in the photo is removed from post meta.
 	 *
@@ -362,31 +405,40 @@ class Jacobs_Media_Management {
 	public function remove_photo_tag( $object_id, $tt_ids )
 	{
 		// check and see if the object is an image
-		if(wp_attachment_is_image($object_id)){
+		if(wp_attachment_is_image($object_id)) {
+			// get all photo people terms
+			$photo_people_terms = get_terms('photo-people', ['hide_empty' => false]);
+			
 			// get the image meta associated with the image
 			$existing_image_meta = get_post_meta($object_id, '_jfg_photo_people', true);
 			
-			// if the meta exists for the image
-			if(!empty($existing_image_meta)) {
-				// decode the image tag meta
-				$tax_meta = json_decode($existing_image_meta);
-				// loop through the deleted tax terms
-				foreach($tt_ids as $tax_ids) {
-					// get the term id for the tax id
-					$term = get_term_by('term_taxonomy_id', $tax_ids, 'photo-people');
-					// loop through each of the image tag meta
-					foreach($tax_meta as $key => $meta){
-						// if the image meta person id is the same as the deleted term id
-						if($term->term_id == $meta->person_id){
-							// unset the array for that term id
-							unset($tax_meta[$key]);
+			// decode the image tag meta
+			$tax_meta = json_decode($existing_image_meta);
+			
+			// loop through all the taxonomy ids
+			foreach($tt_ids as $tax_ids) {
+				// get the term associated with the taxonomy id
+				$term = get_term_by('term_taxonomy_id', $tax_ids, 'photo-people');
+				
+				// if term exists
+				if($term) {
+					// if meta exists
+					if(!empty($existing_image_meta)) {
+						// loop through the image meta
+						foreach($tax_meta as $key => $meta){
+							// if the image meta person id is the same as the deleted term id
+							if($term->term_id == $meta->person_id){
+								// unset the array for that term id
+								unset($tax_meta[$key]);
+							}
 						}
+						
+						// encode the new meta
+						$updated_meta = json_encode($tax_meta);
+						// update the post meta
+						update_post_meta($object_id, '_jfg_photo_people', wp_slash($updated_meta));
 					}
 				}
-				// encode the new meta
-				$updated_meta = json_encode($tax_meta);
-				// update the post meta
-				update_post_meta($object_id, '_jfg_photo_people', wp_slash($updated_meta));
 			}
 		}
 	}
